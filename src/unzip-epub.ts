@@ -1,6 +1,6 @@
-import AdmZip from 'adm-zip';
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from "fs";
+import * as path from "path";
+import { execSync } from "child_process";
 
 /**
  * Extracts an EPUB file to extracted/<epub-name>/
@@ -13,7 +13,7 @@ export function unzipEpub(epubPath: string): void {
 
   // Always extract to extracted/<epub-name>/
   const outputDir = path.join(
-    'extracted',
+    "extracted",
     path.basename(epubPath, path.extname(epubPath))
   );
 
@@ -22,8 +22,11 @@ export function unzipEpub(epubPath: string): void {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const zip = new AdmZip(epubPath);
-  zip.extractAllTo(outputDir, true);
+  const absoluteEpub = path.resolve(epubPath);
+  execSync(`unzip -o "${absoluteEpub}"`, {
+    cwd: outputDir,
+    stdio: "pipe",
+  });
 
   console.log(`Extracted ${epubPath} to ${outputDir}`);
 }

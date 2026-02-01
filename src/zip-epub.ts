@@ -1,48 +1,47 @@
-import AdmZip from "adm-zip";
 import * as fs from "fs";
 import * as path from "path";
+import { execSync } from "child_process";
 
 /**
- * Creates an EPUB file from extracted directory
+ * Creates an EPUB file from extracted directory using the system `zip` command.
+ * This ensures proper EPUB structure with mimetype stored first and uncompressed.
  * @param sourceDir - Directory containing EPUB contents
  * @param outputPath - Path where the EPUB file will be created
  */
 export function zipEpub(sourceDir: string, outputPath: string): void {
-  const zip = new AdmZip();
+  const absoluteOutput = path.resolve(outputPath);
 
-  // CRITICAL: Add mimetype first, uncompressed
-  const mimetypePath = path.join(sourceDir, "mimetype");
-  if (fs.existsSync(mimetypePath)) {
-    zip.addLocalFile(mimetypePath, undefined, undefined, undefined);
-    // Set no compression for mimetype
-    const entries = zip.getEntries();
-    if (entries?.[0]) {
-      entries[0].header.method = 0; // 0 = stored (no compression)
-    }
+  // Remove existing file if present
+  if (fs.existsSync(absoluteOutput)) {
+    fs.unlinkSync(absoluteOutput);
   }
 
-  // Add all other files
-  const addDirectory = (dirPath: string, zipPath: string = "") => {
-    const items = fs.readdirSync(dirPath);
+  // CRITICAL: Add mimetype first, stored (no compression)
+  const mimetypePath = path.join(sourceDir, "mimetype");
+  if (fs.existsSync(mimetypePath)) {
+    execSync(`zip -X0 "${absoluteOutput}" mimetype`, {
+      cwd: sourceDir,
+      stdio: "pipe",
+    });
+  }
 
-    for (const item of items) {
-      if (item === "mimetype") continue; // Already added
+  // Add META-INF directory (required for EPUB)
+  const metaInfPath = path.join(sourceDir, "META-INF");
+  if (fs.existsSync(metaInfPath)) {
+    execSync(`zip -Xr9 "${absoluteOutput}" META-INF`, {
+      cwd: sourceDir,
+      stdio: "pipe",
+    });
+  }
 
-      const fullPath = path.join(dirPath, item);
-      const relativePath = zipPath ? path.join(zipPath, item) : item;
-      const stat = fs.statSync(fullPath);
-
-      if (stat.isDirectory()) {
-        addDirectory(fullPath, relativePath);
-      } else {
-        zip.addLocalFile(fullPath, zipPath);
-      }
+  // Add all other files (excluding mimetype and META-INF)
+  execSync(
+    `zip -Xr9 "${absoluteOutput}" . -x mimetype -x "META-INF/*" -x META-INF`,
+    {
+      cwd: sourceDir,
+      stdio: "pipe",
     }
-  };
+  );
 
-  addDirectory(sourceDir);
-
-  // Write EPUB file
-  zip.writeZip(outputPath);
   console.log(`Created EPUB: ${outputPath}`);
 }
