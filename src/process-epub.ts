@@ -1,5 +1,6 @@
 import { unzipEpub } from "./unzip-epub.js";
 import { cleanEpub } from "./clean-epub.js";
+import { decodeEpubEntities } from "./decode-entities.js";
 import { zipEpub } from "./zip-epub.js";
 import { fetchCover, extractIsbnFromText } from "./fetch-cover.js";
 import * as cheerio from "cheerio";
@@ -131,11 +132,14 @@ export async function processEpub(
   console.log("\nStep 3: Cleaning HTML and CSS...");
   cleanEpub(outputDir);
 
-  console.log("\nStep 4: Creating cleaned EPUB...");
+  console.log("\nStep 4: Decoding character references...");
+  decodeEpubEntities(outputDir);
+
+  console.log("\nStep 5: Creating cleaned EPUB...");
   const outputEpubPath = epubPath.replace(/\.epub$/i, ".cleaned.epub");
   zipEpub(outputDir, outputEpubPath);
 
-  console.log("\nStep 5: Cleaning up temporary files...");
+  console.log("\nStep 6: Cleaning up temporary files...");
   fs.rmSync(outputDir, { recursive: true, force: true });
 
   console.log("\nProcessing complete!");
